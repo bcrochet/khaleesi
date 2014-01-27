@@ -1,0 +1,22 @@
+---
+- name: Enable gluster
+  lineinfile: >
+    dest=/usr/share/openstack-foreman-installer/bin/seeds.rb
+    regexp='^(.*"cinder_backend_gluster"[ ]*=> )"false",'
+    line='\1"true",'
+    backrefs=yes
+    state=present
+  when: use_glusterfs is defined and use_glusterfs
+
+- name: Set gluster peers
+  lineinfile: >
+    dest=/usr/share/openstack-foreman-installer/bin/seeds.rb
+    regexp='^(.*"{{ item }}_gluster_peers"[ ]*=> )\[],'
+    line="\1[ '{{ hostvars[gluster_name].foreman_private_ip }}' ],"
+    backrefs=yes
+    state=present
+  with_items:
+    - cinder
+    - glance
+  when: use_glusterfs is defined and use_glusterfs
+

@@ -1,0 +1,35 @@
+[local]
+localhost
+
+[foreman]
+bcrochet-foreman ansible_ssh_host=10.16.71.25 ansible_ssh_private_key_file=/home/bcrochet/.ssh/id_dsa public_ip=10.16.71.25 foreman_private_ip=192.168.200.22 foreman_public_ip=192.168.201.22  fqdn=foreman.example.com priv_hostname=foreman.example.com
+
+[controller]
+bcrochet-controller ansible_ssh_host=10.16.71.64 ansible_ssh_private_key_file=/home/bcrochet/.ssh/id_dsa public_ip=10.16.71.64 foreman_private_ip=192.168.200.23 foreman_public_ip=192.168.201.23 fqdn=controller.example.com priv_hostname=controller.example.com foreman_node_hostgroup="Controller (Neutron)"
+
+[compute]
+bcrochet-compute1 ansible_ssh_host=10.16.71.71 ansible_ssh_private_key_file=/home/bcrochet/.ssh/id_dsa public_ip=10.16.71.71 foreman_private_ip=192.168.200.24 foreman_public_ip=192.168.201.24 fqdn=compute1.example.com priv_hostname=compute1.example.com foreman_node_hostgroup="Compute (Neutron)"
+
+[networker]
+bcrochet-networker ansible_ssh_host=10.16.71.27 ansible_ssh_private_key_file=/home/bcrochet/.ssh/id_dsa public_ip=10.16.71.27 foreman_private_ip=192.168.200.26 foreman_public_ip=192.168.201.26 fqdn=networker.example.com priv_hostname=networker.example.com foreman_node_hostgroup="Neutron Networker"
+
+[gluster]
+bcrochet-gluster ansible_ssh_host=10.16.70.135 ansible_ssh_private_key_file=/home/bcrochet/.ssh/id_dsa public_ip=10.16.70.135 foreman_private_ip=192.168.200.27 foreman_public_ip=192.168.201.27 fqdn=gluster.example.com priv_hostname=gluster.example.com foreman_node_hostgroup="Gluster Storage"
+
+
+[tempest:children]
+controller
+
+[foreman_installer:children]
+foreman
+controller
+compute
+networker
+gluster
+
+[foreman_node:children]
+controller
+compute
+networker
+gluster
+

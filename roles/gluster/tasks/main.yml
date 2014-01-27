@@ -1,0 +1,6 @@
+---
+- name: Create the RH Storage Repository
+  template: src=rhs.repo.j2 dest=/etc/yum.repos.d/rhs.repo
+
+- name: Create cinder-volumes
+  script: cinder-testing-volume.sh 5G
