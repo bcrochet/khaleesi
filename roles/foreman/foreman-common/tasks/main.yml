@@ -1,16 +1,22 @@
 ---
 - name: Ensure optional repo
   ini_file: dest=/etc/yum.repos.d/rhel.repo section=rhel-6-server-optional-rpms option=enabled value=1
-  when: ansible_distribution == "RedHat"
+  when: ansible_distribution == "RedHat" and use_cdn is not defined
 
 - name: Add RDO/RHOS repos
   yum: name={{ rdo_repo_rpm }}
-  when: rdo_repo_rpm is defined
+  when: rdo_repo_rpm is defined and use_cdn is not defined
 
 - name: Add RDO/RHOS repos - Repofile
   get_url: url={{ rdo_repo_url }} dest=/etc/yum.repos.d/
-  when: rdo_repo_url is defined
+  when: rdo_repo_url is defined and use_cdn is not defined
 
 - name: Add RDO/RHOS repos - Path
   template: src=rhos-dev.repo.j2 dest=/etc/yum.repos.d/rhos-dev.repo
-  when: rdo_repo_path is defined
+  when: rdo_repo_url is defined and use_cdn is not defined
+
+- name: Enable repos - CDN
+  shell: subscription-manager repos --enable {{ item }}
+  with_items: rhsm_repos
+  when: use_cdn is defined and use_cdn
+

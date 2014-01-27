@@ -1,0 +1,3 @@
+---
+- name: Register with CDN
+  redhat_subscription: "username={{ cdn_username }} password={{ cdn_password }} autosubscribe=yes state=present"

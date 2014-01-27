@@ -1,0 +1,11 @@
+---
+#RHEL
+
+- name: Remove all yum repositories
+  file: path=/etc/yum.repos.d/*.repo state=absent
+
+- name: Create the RHEL Repositories
+  template: src=rhel.repo.j2 dest=/etc/yum.repos.d/rhel.repo
+
+
+

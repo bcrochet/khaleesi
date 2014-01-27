@@ -1,6 +1,4 @@
 ---
-#RHEL
-
 - name: Ensure redhat-release-server
   yum: name=redhat-release-server state=present
 
@@ -15,6 +13,12 @@
   notify:
     - Yum clean all
     - yum -y update to latest packages
+
+- include: yumrepo.yml
+  when: use_cdn is not defined
+
+- include: cdn.yml
+  when: use_cdn is defined and use_cdn
 
 - name: Create the EPEL Repository
   template: src=epel.repo.j2 dest=/etc/yum.repos.d/epel.repo

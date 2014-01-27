@@ -1,4 +1,7 @@
 ---
+- name: Remove systemid
+  file: path=/etc/sysconfig/rhn/systemid state=absent
+
 - name: Ensure libselinux-python
   yum: name=libselinux-python state=present
 
@@ -6,3 +9,5 @@
   yum: name=yum-rhn-plugin state=absent
   notify:
     - Yum clean all
+  when: use_cdn is not defined
+
