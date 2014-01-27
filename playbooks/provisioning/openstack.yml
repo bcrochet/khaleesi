@@ -1,0 +1,26 @@
+---
+- name: Get nodes from nova
+  hosts: local
+  gather_facts: False
+  roles:
+    - { role: get_nodes, nodes: '{{ foreman_nodes }}' }
+  tags:
+    - provision
+
+- name: Set facts for hosts
+  hosts: foreman_installer
+  gather_facts: False
+  roles:
+    - { role: set_facts }
+    - { role: wait_for_hosts }
+  tags:
+    - provision
+
+- name: Generate inventory
+  hosts: local
+  gather_facts: False
+  roles:
+    - { role: generate_inventory }
+  tags:
+    - provision
+    - inventory

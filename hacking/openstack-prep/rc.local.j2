@@ -1,0 +1,6 @@
+#!/bin/sh
+touch /var/log/subsys/local
+
+mount /mnt/vm-share
+echo $(ifconfig eth0 | grep "inet " | perl -p -e "s/.*inet .*?(\d\S+\d).*\\\$/\\\$1/")  {{ inventory_hostname }}.example.com {{ inventory_hostname }} > /mnt/vm-share/{{ inventory_hostname }}.hello
+/etc/init.d/ntpd stop; ntpdate {{ ntp_server }}; /etc/init.d/ntpd start;

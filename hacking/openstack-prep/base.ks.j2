@@ -1,0 +1,49 @@
+%packages
+@base
+@core
+nfs-utils
+emacs-nox
+emacs-common
+screen
+nc
+libselinux-python
+%end
+
+reboot
+firewall --disabled
+install
+url --url="{{ install_url }}"
+rootpw --plaintext weakpw
+auth  --useshadow  --passalgo=sha512
+graphical
+keyboard us
+lang en_US
+selinux --disabled
+skipx
+logging --level=info
+timezone  America/Los_Angeles
+bootloader --location=mbr --append="console=tty0 console=ttyS0,115200 rd_NO_PLYMOUTH"
+clearpart --all
+part /boot --fstype ext4 --size=400
+part swap --size=100
+part pv.01 --size=8000
+volgroup lv_admin --pesize=32768 pv.01
+logvol / --fstype ext4 --name=lv_root --vgname=lv_admin --size=7000 --grow
+zerombr
+network --bootproto=dhcp --noipv6 --device=eth0
+
+%post
+
+mkdir -p /mnt/vm-share
+mount {{ default_ip_prefix }}.1:/mnt/vm-share /mnt/vm-share
+if [ ! -d /root/.ssh ]; then
+  mkdir -p /root/.ssh
+  chmod 700 /root/.ssh
+fi
+if [ -f /mnt/vm-share/authorized_keys ]; then
+  cp /mnt/vm-share/authorized_keys /root/.ssh/authorized_keys
+  chmod 0600 /root/.ssh/authorized_keys
+fi
+# TODO script register to RHN
+
+%end

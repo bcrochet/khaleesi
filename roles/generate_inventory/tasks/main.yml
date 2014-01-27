@@ -1,0 +1,3 @@
+---
+- name: Populate inventory file
+  template: src=inventory.j2 dest=/tmp/inventory

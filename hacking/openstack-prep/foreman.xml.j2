@@ -1,0 +1,6 @@
+<network>
+  <name>foreman_{{ item[1] }}</name>
+  <forward mode='nat'/>
+  <bridge name="virbr3{{ item[1] }}" stp="on" delay="0" />
+  <ip address='192.168.10{{ item[1] }}.1' netmask='255.255.255.0'></ip>
+</network>

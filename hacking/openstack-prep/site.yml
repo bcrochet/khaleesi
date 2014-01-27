@@ -1,0 +1,309 @@
+---
+- hosts: beaker
+  remote_user: root
+  sudo: yes
+  vars:
+    - network_names: [ 'openstackvms1', 'openstackvms2', 'foreman' ]
+    - network_numbers: [ '1', '2', '3' ]
+    - sysprep_operations: "abrt-data,bash-history,blkid-tab,crash-data,cron-spool,dhcp-client-state,hostname,logfiles,lvm-uuids,machine-id,net-hostname,net-hwaddr,random-seed,rhn-systemid,ssh-hostkeys,udev-persistent-net,utmp,yum-uuid"
+    - khaleesi_branch: networker
+
+  handlers:
+    - name: restart ntpd
+      service: name=ntpd state=restarted
+
+    - name: reboot
+      command: "/sbin/shutdown -r {{ reboot_delay }} 'Reboot is triggered by Ansible'"
+
+    - name: Wait for host to stop
+      local_action: "wait_for host={{ hostvars[inventory_hostname].ansible_ssh_host }} port=22 state=stopped"
+
+    - name: Wait for host to come back
+      local_action: "wait_for host={{ hostvars[inventory_hostname].ansible_ssh_host }} port=22 delay=90 timeout=600"
+
+  tasks:
+    - name: be sure libselinux-python is installed
+      yum: name=libselinux-python state=installed
+      tags: libselinux-python
+
+    - name: Add epel repos
+      yum: name=http://download-i2.fedoraproject.org/pub/epel/6/i386/epel-release-6-8.noarch.rpm state=installed
+      when: ansible_distribution == 'RedHat'
+
+    - name: be sure ntp is installed
+      yum: name=ntp state=installed
+      tags: ntp
+
+    - name: be sure ntp is configured
+      template: src=ntp.conf.j2 dest=/etc/ntp.conf
+      notify:
+        - restart ntpd
+      tags: ntp
+
+    - name: be sure ntpd is running and enabled
+      service: name=ntpd state=running enabled=yes
+      tags: ntp
+
+    - name: Host dependencies
+      yum: name={{ item }} state=latest
+      with_items:
+        - nfs-utils
+        - qemu-kvm
+        - spice-server
+        - qemu-img
+        - libguestfs-tools
+        - libvirt
+        - virt-manager
+        - git
+        - tigervnc-server
+        - tigervnc-server-module
+        - tigervnc
+        - xorg-x11-twm
+        - xorg-x11-server-utils
+        - emacs-nox
+        - python-virtinst
+        - virt-viewer
+        - nc
+        - git-review
+        - python-virtualenv
+
+    - name: Set host to permissive mode
+      selinux: state=permissive policy=targeted
+
+    - name: Empty iptables
+      shell: /sbin/iptables --flush
+
+    - name: Set ip forwarding to true
+      sysctl: name=net.ipv4.ip_forward value=1 state=present reload=yes
+
+    - name: Configure qemu
+      lineinfile: dest=/etc/libvirt/qemu.conf regexp='^{{ item.key }}' line='{{ item.key }} = "{{ item.value }}"' state=present
+      with_items:
+        - { key: "vnc_listen", value: "0.0.0.0" }
+        - { key: "spice_listen", value: "0.0.0.0" }
+
+    - name: Push up reset_vms.sh script to root home
+      sudo: yes
+      copy: src=reset_vms.sh dest=/root/reset_vms.sh mode=755
+
+    - name: Start libvirtd
+      service: name=libvirtd state=running enabled=yes
+
+    - name: Create pool directory
+      file: path={{ poolpath }} state=directory
+
+    - name: Create and build pool
+      script: pool_build.sh {{ poolpath }}
+
+    - name: Restart libvirtd
+      service: name=libvirtd state=restarted
+
+    - name: Default network xml
+      template: src=default-network.xml.j2 dest=/tmp/default-network.xml
+
+    - name: Is default network already changed?
+      shell: virsh net-dumpxml default | grep {{ default_ip_prefix }}
+      ignore_errors: True
+      register: default_network_changed
+
+    - name: Change default network ip
+      script: default_network_ip.sh
+      when: default_network_changed|failed
+
+    - name: Create foreman network xml
+      template: src={{ item[0] }}.xml.j2 dest=/tmp/{{ item[0] }}_{{ item[1] }}.xml
+      with_nested:
+        - network_names
+        - network_numbers
+
+    - name: Create foreman networks
+      script: create_networks.sh {{ item[0] }} {{ item[1] }}
+      with_nested:
+        - network_names
+        - network_numbers
+
+    - name: Create vm-share directory
+      file: path=/mnt/vm-share state=directory mode=777 owner=root group=root
+
+    - name: Manage exports
+      lineinfile: dest=/etc/exports regexp=^\/mnt\/vm-share line='/mnt/vm-share 192.168.0.0/16(rw,sync,no_root_squash)' state=present
+
+    - name: Turn on nfs
+      service: name=nfs state=restarted enabled=yes
+
+    - name: Generate ssh key
+      shell: ssh-keygen -t rsa -N '' -f /root/.ssh/id_rsa creates=/root/.ssh/id_rsa
+
+    - name: Get the private key
+      fetch: dest=/tmp/ssh_key fail_on_missing=yes src=/root/.ssh/id_rsa mode=600
+
+    - name: Get the public key
+      fetch: dest=/tmp/ssh_key fail_on_missing=yes src=/root/.ssh/id_rsa.pub
+
+    - name: Put authorized_keys in vm-share
+      copy: src=/tmp/ssh_key/{{ inventory_hostname }}/root/.ssh/id_rsa.pub dest=/mnt/vm-share/authorized_keys mode=666
+
+    - name: Copy kickstart template
+      template: src=base.ks.j2 dest=/tmp/base.ks
+
+    - name: Create image file
+      qemu_img: dest={{ poolpath }}/{{ initimage }}.qcow2 size=9000 format=qcow2 opt=preallocation=metadata state=present
+
+    # Maybe later???
+    # - name: Define the VM
+    #   virt: name={{ initimage }}
+    #         command=define
+    #         xml="{{ lookup('template', 'container-template.xml.j2') }}"
+
+    # - name: Start the VM
+    #   virt:
+    - name: Kick off the virt-install
+      shell: virt-install --connect=qemu:///system
+               --network network:default
+               --network network:foreman_1
+               --network network:openstackvms1_1
+               --network network:openstackvms1_2
+               --network network:foreman_2
+               --network network:openstackvms2_1
+               --network network:openstackvms2_2
+               --initrd-inject=/tmp/base.ks
+               --extra-args="ks=file:/base.ks ksdevice=eth0 noipv6 ip=dhcp keymap=us lang=en_US"
+               --name={{ initimage }}
+               --location={{ install_url }}
+               --disk {{ poolpath }}/{{ initimage }}.qcow2,format=qcow2
+               --ram 7000
+               --vcpus 3
+               --cpu host
+               --hvm
+               --os-variant rhel6
+               --vnc
+               --noreboot
+               --wait=-1
+               creates=/etc/libvirt/qemu/{{ initimage }}.xml
+      register: vm_create
+
+    # - name: Get the mac addresses of the vm
+    #   shell: virsh domiflist {{ initimage }} | awk '/default/ { print $5; }'
+    #   register: vm_mac
+    #   when: vm_create|changed
+
+    # - name: Wait for the guest to be booted and have IPs
+    #   wait_for: path=/var/lib/libvirt/dnsmasq/default.leases search_regex={{ vm_mac.stdout }}
+    #   when: vm_create|changed
+
+    # - name: Get the ip address of the new vm
+    #   shell: "grep $(virsh domiflist {{ initimage }} | awk '/default/ { print $5;}') /var/lib/libvirt/dnsmasq/default.leases | awk '{ print $3; }'"
+    #   register: vm_ip
+
+    # - name: Add the new host to inventory
+    #   add_host: name={{ initimage }} ansible_ssh_host={{ vm_ip.stdout }} groups=init
+
+    # - name: Make sure guest is started if not created
+    #   virt: name={{ initimage }} state=running
+    #   when: vm_create|skipped
+
+    # - name: Wait for new host to finish installing
+    #   # wait_for: host={{ hostvars[initimage].ansible_ssh_host }} port=22 delay=10 timeout=600
+    #   pause: minutes=5
+
+    # - name: Now shut it down
+    #   virt: name={{ initimage }} state=shutdown
+    #   register: node_shutdown
+
+    # - name: Wait for node to shut down
+    #   wait_for: host={{ hostvars[initimage].ansible_ssh_host }} port=22 state=stopped
+    #   when: node_shutdown|changed
+
+    - name: Pause for a bit to let the node finish shutdown
+      pause: seconds=15
+
+    - name: Clone the real images
+      shell: virt-clone -o {{ initimage }} -n {{ item.name }} -f {{ poolpath }}/{{ item.name }}.qcow2
+      with_items: vmset
+
+    - name: Sysprep the real images
+      shell: virt-sysprep --enable {{ sysprep_operations }} -d {{ item.name }}
+      with_items: vmset
+
+    - name: Start the guests
+      virt: name={{ item.name }} state=running
+      with_items: vmset
+
+    - name: Get the mac addresses of the vms
+      shell: virsh domiflist {{ item.name }} | awk '/default/ { print $5; }'
+      register: vm_mac
+      with_items: vmset
+      tags:
+        - inventory
+
+    - name: Wait for the guests to be booted and have IPs
+      wait_for: path=/var/lib/libvirt/dnsmasq/default.leases search_regex={{ item.stdout }}
+      with_items: vm_mac.results
+
+    - name: Get the ip addresses of the new vms
+      shell: grep $(virsh domiflist {{ item.name }} | awk '/default/ { print $5;}') /var/lib/libvirt/dnsmasq/default.leases | awk '{ print $3; }'
+      register: client_vm_ip
+      with_items: vmset
+      tags:
+        - inventory
+
+    - name: Add the new vm's to inventory
+      add_host: name={{ item.0.name }} ansible_ssh_host={{ item.1.stdout }} groups=clients,{{ item.0.groups }}
+      with_together:
+        - vmset
+        - client_vm_ip.results
+      tags:
+        - inventory
+
+    - name: Wait for the clients to come up
+      wait_for: host={{ hostvars[item].ansible_ssh_host }} port=22 delay=10 timeout=300
+      with_items: groups.clients
+
+    - name: Populate inventory file
+      template: src=inventory.j2 dest=/tmp/inventory
+      tags:
+        - inventory
+
+    - name: Get khaleesi
+      git: repo=https://github.com/bcrochet/khaleesi.git dest=/root/khaleesi version={{ khaleesi_branch }}
+
+    - name: Install ansible
+      pip: name=ansible virtualenv=/root/ansible
+
+- hosts: clients
+  remote_user: root
+  sudo: yes
+
+  tasks:
+    - name: Put down rc.local
+      template: src=rc.local.j2 dest=/etc/rc.d/rc.local backup=yes mode=755 owner=root group=root
+      tags:
+        - client_config
+
+    - name: Disable selinux
+      selinux: state=disabled
+      tags:
+        - client_config
+
+    - name: Put down network
+      template: src=network.j2 dest=/etc/sysconfig/network backup=yes mode=644 owner=root group=root
+      tags:
+        - client_config
+
+    - name: Add NFS mount
+      lineinfile: dest=/etc/fstab regexp="^{{ default_ip_prefix }}.1:/mnt/vm-share" line="{{ default_ip_prefix }}.1:/mnt/vm-share /mnt/vm-share nfs defaults 0 0"
+      tags:
+        - client_config
+
+    - name: Check for ipv6 and noapic
+      command: grep -q 'kernel.*ipv6.disable' /boot/grub/grub.conf
+      ignore_errors: True
+      register: ipv6_disabled
+      tags:
+        - client_config
+
+    - name: Disable ipv6 and set noapic
+      shell: "perl -p -i -e 's/^(\\s*kernel\\s+.*)\\$/\\$1 noapic ipv6.disable=1/' /boot/grub/grub.conf"
+      when: ipv6_disabled.rc != 0
+      tags:
+        - client_config

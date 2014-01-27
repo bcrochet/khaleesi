@@ -1,0 +1,44 @@
+[local]
+localhost
+
+{% set foreman_groups = ['foreman', 'controller', 'compute', 'networker'] %}
+
+{% for group in groups %}
+{% set outer_loop = loop %}
+{% if group in foreman_groups %}
+
+[{{ group }}]
+{% for host in groups[group] %}
+{{ hostvars[host]['inventory_hostname_short'] }} ansible_ssh_host={{ hostvars[host]['ansible_ssh_host'] }} public_ip={{ hostvars[host]['ansible_ssh_host'] }} fqdn={{ hostvars[host]['inventory_hostname_short'] }}.example.com priv_hostname={{ hostvars[host]['inventory_hostname_short'] }}.example.com foreman_private_ip=192.168.200.{{ outer_loop.index0 }}{{ loop.index0 }} foreman_public_ip=192.168.201.{{ outer_loop.index0 }}{{ loop.index0 }} ansible_ssh_private_key_file=/root/.ssh/id_rsa
+
+{% endfor %}
+{% elif group in ['packstack'] %}
+
+[{{ group }}]
+{% for host in groups[group] %}
+{{ hostvars[host]['inventory_hostname_short'] }} ansible_ssh_host={{ hostvars[host]['ansible_ssh_host'] }} public_ip={{ hostvars[host]['ansible_ssh_host'] }} fqdn={{ hostvars[host]['inventory_hostname_short'] }}.example.com priv_hostname={{ hostvars[host]['inventory_hostname_short'] }}.example.com
+ansible_ssh_private_key_file=/root/.ssh/id_rsa
+
+{% endfor %}
+
+{% endif %}
+{% endfor %}
+
+{% if [i for i in foreman_groups if i in groups] %}
+[tempest:children]
+controller
+
+[foreman_installer:children]
+{% for group in groups %}
+{% if group not in ['clients', 'init', 'beaker', 'all', 'ungrouped'] %}
+{{ group }}
+{% endif %}
+{% endfor %}
+
+[foreman_node:children]
+{% for group in groups %}
+{% if group not in ['clients', 'init', 'beaker', 'all', 'ungrouped', 'foreman' ] %}
+{{ group }}
+{% endif %}
+{% endfor %}
+{% endif %}
