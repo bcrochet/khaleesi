@@ -1,0 +1,19 @@
+---
+- name: Set up shared storage on storage node
+  file: path=/mnt/mysql_shared state=directory mode=777 owner=root group=root
+
+- name: ensure nfs-utils installed
+  yum: name=nfs-utils state=latest
+
+- name: Add storage to exports
+  lineinfile: dest=/etc/exports
+        regexp=^\/mnt\/mysql_shared
+        line='/mnt/mysql_shared 192.168.0.0/16(rw,sync,no_root_squash)'
+        state=present
+  notify:
+    - Restart nfs
+
+- name: Turn on nfs
+  service: name=nfs enabled=yes
+  notify:
+    - Restart nfs

@@ -33,6 +33,22 @@
 # apply pre-foreman workarouds
 - include: ../../workarounds/workarounds-prep.yml tags=workaround
 
+- name: Prepare HA mysql storage node
+  hosts: ha_mysql_storage
+  user: "{{ remote_user }}"
+  sudo: yes
+  roles:
+    - { role: ha_mysql_storage }
+
+- name: Prepare HA mysql nodes
+  hosts: ha_mysql
+  user: "{{ remote_user }}"
+  sudo: yes
+  roles:
+    - { role: ha_mysql }
+  tags:
+    - prep
+
 - name: Install Foreman
   hosts: foreman
   gather_facts: True
@@ -44,6 +60,22 @@
     - install
 
 - include: ../../workarounds/workarounds-pre-run-foreman.yml tags=workaround
+
+- name: Common OpenStack node setup
+  hosts: foreman_node
+  user: "{{ remote_user }}"
+  gather_facts: True
+  sudo: yes
+  roles:
+    - { role: foreman/foreman-openstack-node-common }
+
+- name: Install HA Mysql nodes
+  hosts: ha_mysql
+  user: "{{ remote_user }}"
+  sudo: yes
+  roles:
+    - { role: foreman/foreman-openstack-node }
+    - { role: foreman/run-puppet }
 
 - name: Install Controller node
   hosts: controller

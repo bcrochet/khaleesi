@@ -1,0 +1,3 @@
+{% for host in groups['ha_mysql'] %}
+ {{ hostvars[host].ansible_eth4.ipv4.address }}
+{% endfor %}

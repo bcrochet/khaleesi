@@ -41,6 +41,20 @@
   with_items: '{{ astapor_dest }}/bin/seeds.rb'
   when: random_passwords.rc == 0
 
+- name: Set ha_mysql vars
+  lineinfile: >
+    dest=/usr/share/openstack-foreman-installer/bin/seeds.rb
+    regexp= {{ item.regex }}
+    line="\1'{{ item.value }}'"
+    backregs=yes
+    state=present
+  with_items:
+    - { regex: '^(.*"mysql_shared_storage_device"[ ]*=> )\'192.168.203.200:/mnt/mysql\',', value: '{{ ha_mysql_storage }}' }
+    - { regex: '^(.*"mysql_shared_storage_type"[ ]*=> )\'nfs\',', value: 'nfs' }
+    - { regex: '^(.*"mysql_resource_group_name"[ ]*=> )\'mysqlgrp\',', value: 'mysqlgrp' }
+    - { regex: '^(.*"mysql_clu_member_addrs"[ ]*=> )\'192.168.203.11 192.168.203.12 192.168.203.13\',', value: '{{ lookup('template', 'ha_mysql_clu_members.j2') }}' }
+  when: use_ha_mysql is defined and use_ha_mysql
+
 - name: Fix seed values
   lineinfile: >
     dest={{ astapor_dest }}/bin/seeds.rb

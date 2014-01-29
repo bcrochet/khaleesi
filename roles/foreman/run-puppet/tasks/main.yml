@@ -1,0 +1,3 @@
+---
+- name: Ad-hoc puppet agent run
+  command: /usr/bin/puppet agent --onetime --verbose --ignorecache --no-daemonize --no-usecacheonfailure --no-splay --show_diff

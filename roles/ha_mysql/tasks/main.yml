@@ -1,0 +1,7 @@
+---
+- name: Add HA repos
+  template: src=ha.repo.j2 dest=/etc/yum.repos.d/ha.repo
+  notify:
+    - Yum clean all
+    - yum -y update to latest packages
+
