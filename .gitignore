@@ -20,3 +20,6 @@ teardown.txt
 
 #kytoon
 tmp/
+
+# Vagrant
+.vagrant
