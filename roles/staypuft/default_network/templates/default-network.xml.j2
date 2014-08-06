@@ -8,15 +8,20 @@
   </forward>
   <domain name='example.com'/>
   <dns>
-    <host ip='{{ default_ip_prefix }}.1'>
-      <hostname>foreman.example.com</hostname>
+{% for key, host in nodes.iteritems() %}
+    <host ip='{{ staypuft.default_ip_prefix }}.{{ host.ip_suffix }}'>
+      <hostname>{{ host.name }}.example.com</hostname>
     </host>
+{% endfor %}
   </dns>
-  <ip address="{{ default_ip_prefix }}.1" netmask="255.255.255.0">
+  <ip address="{{ staypuft.default_ip_prefix }}.1" netmask="255.255.255.0">
     <tftp root='/var/lib/tftpboot/' />
     <dhcp>
-      <range start="{{ default_ip_prefix }}.10" end="{{ default_ip_prefix }}.254" />
+      <range start="{{ staypuft.default_ip_prefix }}.210" end="{{ staypuft.default_ip_prefix }}.250" />
       <bootp file='pxelinux.0' />
+{% for key, host in nodes.iteritems() %}
+      <host mac="{{ host.mac }}" name="{{ host.name }}.example.com" ip="{{ staypuft.default_ip_prefix }}.{{ host.ip_suffix }}" />
+{% endfor %}
     </dhcp>
   </ip>
 </network>

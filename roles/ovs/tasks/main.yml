@@ -1,0 +1,28 @@
+---
+- name: Install packages
+  yum: name={{ item }} state=latest
+  with_items:
+    - openvswitch
+    - openvswitch-controller
+
+- name: Configure bridge
+  template: src=ifcfg-ovsbr0.j2 dest=/etc/sysconfig/network-scripts/ifcfg-ovsbr0 mode=644 owner=root group=root
+  notify:
+    - reboot
+    - Wait for host to stop
+    - Wait for host to come back
+
+- name: Configure main interface
+  lineinfile: dest=/etc/sysconfig/network-scripts/ifcfg-{{ ovs_interface }} regexp='^{{ item.key }}' line='{{ item.key }}="{{ item.value }}"' state=present
+  with_items:
+    - { key: "BOOTPROTO", value: "none" }
+    - { key: "NM_CONTROLLED", value: "no" }
+    - { key: "ONBOOT", value: "yes" }
+    - { key: "TYPE", value: "OVSPort" }
+    - { key: "OVS_BRIDGE", value: "ovsbr0" }
+    - { key: "HOTPLUG", value: "no" }
+  notify:
+    - reboot
+    - Wait for host to stop
+    - Wait for host to come back
+

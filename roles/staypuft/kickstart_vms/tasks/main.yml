@@ -1,0 +1,56 @@
+---
+- name: Ensure virt-install
+  yum: name=virt-install state=present
+
+- name: Copy kickstart template
+  template: src={{ item.value.kickstart.variant }}.ks.j2 dest=/tmp/{{ item.value.name }}.ks
+  with_dict: nodes
+  when: item.key in ['foreman', 'tempest']
+
+- name: Create image file
+  qemu_img: dest=/var/lib/libvirt/images/{{ item.value.name }}.qcow2 size=10000 format=qcow2 opt=preallocation=metadata state=present
+  with_dict: nodes
+  when: item.key in ['foreman', 'tempest']
+
+- name: Kick off the virt-install
+  shell: virt-install --connect=qemu:///system
+           --network network=default,model=virtio,mac={{ item.value.mac }}
+           --initrd-inject=/tmp/{{ item.value.name }}.ks
+           --extra-args="ks=file:/{{item.value.name }}.ks ksdevice=eth0 keymap=us lang=en_US {{ ks_extra_args | default('') }}"
+           --name={{ item.value.name }}
+           --location="{{ distro.rhel[item.value.kickstart.version].kickstart_url }}"
+           --disk /var/lib/libvirt/images/{{ item.value.name }}.qcow2,format=qcow2
+           --ram 3072
+           --vcpus 2
+           --cpu host
+           --hvm
+           --os-variant {{ item.value.kickstart.variant }}
+           --vnc
+           --noreboot
+           --wait=-1
+           creates=/etc/libvirt/qemu/{{ item.value.name }}.xml
+  register: vm_create
+  with_dict: nodes
+  when: item.key in ['foreman', 'tempest']
+
+- name: Pause for a bit to let the node finish shutdown
+  pause: seconds=15
+  when: vm_create | changed
+
+- name: Start VMs
+  virt: name={{ item.value.name }}
+        command=start
+  with_dict: nodes
+  when: item.key in ['foreman', 'tempest'] and vm_create | changed
+
+- name: Add hosts to ansible inventory
+  add_host:
+    name="{{ item.value.name }}"
+    ansible_ssh_user="{{ item.value.remote_user }}"
+    ansible_ssh_host="{{ staypuft.default_ip_prefix }}.{{ item.value.ip_suffix }}"
+    groups="{{ item.value.groups
+        if item.value.groups is string
+        else item.value.groups| join(',') }}"
+  with_dict: nodes
+  when: item.key in ['foreman', 'tempest']
+

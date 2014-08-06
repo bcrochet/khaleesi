@@ -1,7 +1,7 @@
 ---
 - include: group_by.yml tags=groupby
 
-- include: prep.yml
+- include: staypuft/prep.yml prep_hosts=staypuft
 
 - name: Prep staypuft on a fresh box
   hosts: staypuft
@@ -9,28 +9,31 @@
   roles:
     - { role: staypuft/selinux }
     - { role: staypuft/packages, tags: ['packages'] }
+    - { role: staypuft/default_network }
+    - { role: staypuft/kickstart_vms }
+
+- include: staypuft/prep.yml prep_hosts='foreman:tempest'
 
 - name: IPtables firewall
-  hosts: staypuft:RedHat-6:CentOS-6
+  hosts: foreman:RedHat-6:CentOS-6
   sudo: yes
   roles:
     - { role: staypuft/firewall/iptables }
 
 - name: Firewalld firewall
-  hosts: staypuft:!RedHat-6:!CentOS-6
+  hosts: foreman:!RedHat-6:!CentOS-6
   sudo: yes
   roles:
     - { role: staypuft/firewall/firewalld }
 
 - name: More prep
-  hosts: staypuft
+  hosts: foreman
   sudo: yes
   roles:
-    - { role: staypuft/default_network }
     - { role: staypuft/nfs_server }
 
 - name: Install staypuft
-  hosts: staypuft
+  hosts: foreman
   sudo: yes
   roles:
     - { role: staypuft/install }
@@ -39,7 +42,7 @@
 - include: ../workarounds/workarounds-staypuft-prep.yml tags=workaround
 
 - name: Run staypuft installer
-  hosts: staypuft
+  hosts: foreman
   sudo: yes
   roles:
     - { role: staypuft/run_install }

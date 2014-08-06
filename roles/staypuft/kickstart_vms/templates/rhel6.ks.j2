@@ -1,0 +1,76 @@
+install
+url --url={{ distro.rhel[item.value.kickstart.version].kickstart_url }}
+autopart
+bootloader --location=mbr
+clearpart --all
+firstboot --disabled
+lang en_US
+keyboard us
+network --bootproto=dhcp --device=eth0
+reboot
+rootpw --plaintext redhat
+selinux --enforcing
+skipx
+timezone --utc America/New_York
+zerombr
+firewall --disabled
+unsupported_hardware
+
+%packages
+@Development tools
+vim-enhanced
+libselinux-python
+wget
+xauth
+yum-utils
+%end
+
+%pre
+%end
+
+%post --nochroot
+cp /etc/resolv.conf /mnt/sysimage/etc/resolv.conf
+%end
+
+%post --log=/var/log/anaconda-post.log
+useradd cloud-user
+mkdir /home/cloud-user/.ssh
+chmod 700 /home/cloud-user/.ssh
+chown cloud-user:cloud-user /home/cloud-user/.ssh
+mkdir /root/.ssh
+chmod 700 /root/.ssh
+for i in '/root' '/home/cloud-user'; do
+echo 'ssh-dss AAAAB3NzaC1kc3MAAACBAOwydafz1PYb0cAZR3/HlAhy+LhuTqK++Y+YgABlLc0RtaJPIs29xpeEC0Re1ur7wC2i8Hr3KGYb4y9himwVMSLDa/pgBej5cpXkXlWUa3iGNhjGmI2c7H1zNB0JogxYG/wSRTh7mczvuEJcLEswsV+b5AKwB8104SwQa13yzRl7AAAAFQCqVMFtnDVtXYA4k47jfDRvgGRPdQAAAIEAw5O6zH9it8P/D1Zf8Jn5nIV4iwk5Tpc2G+TCDWE9OqWLc22Z0rhrK1qcxTKNIr8Hkur2EUU1fYdxR/9pUkODjbsNrTyToSVJU+0q0LMKAS58F8MiNC2mEMUelgKw8rQs6oIC6oJAdGjpOISOjiIL8Iw+VM90O2JjZmkHLdcl1MAAAACAChWRsZxdgLUtLINoRpsX4Nya4mTWqmLpRePS18Cd1aO9DFSu/UaKlDlPdI5gJl13drLnfQeVAPwxII5V3JKQvu5u1pzk10lwps+LkzY4KxXeHjKMF5JUsXUwQJryBdzTvzvmioq6Uzm9QNGwbPWhwj7c5buHo08qIzAqLKM4000= bcrochet@bcrochet.csb' > ${i}/.ssh/authorized_keys
+echo 'ssh-dss AAAAB3NzaC1kc3MAAACBAMNRyqehhvQ9BR0WnyNxu74uyK3F8nyOaQ2ah8j5aX5TC/hlsSATxLCIcT9UicnwvJi0kWL4acDQ0lFEuHtolxGJmRYiVxd7hHwlXuKLHjVbjTU4JURShOkFNuniErMZjFYUpSZrE2tIUkFySgB7zwnuQJEps67cW1lccBseoAAJAAAAFQDADzwRlUXfkk0Ae2GtuZYanmE25wAAAIBB9TxziLrlU7/G67xt2heYpojW7txPItfBPsr+MRZp8pzQqh9ogZcJ2/cyO7dZL1EyigDXL8AlebWO/rOkGIcyIeVjQDPsd3mWCW/lUeUacH87tUKn2cm9lOk+eeNC/Rxg6y+akgYKjncg8D/rGZrBvlZEWIcZpwojTczAPDZwzgAAAIEAnVChocD+icLr/tBV9Hq6Z5TOqck9AuXK4e4qrRzHJEWCQ2t3okvWYrF/CDJX3O9QtV45UsHuAAoJaY6oknq1OkWRSyxX3LYALJuSu+Kzdx+hB3qJYFaBH0abWb6fqsCgTx8IsmYBqoZcaGRXe0/Wp1ZThu0XFdLfNdb2GL0NMmw= bcrochet@bcrochet.usersys' >> ${i}/.ssh/authorized_keys
+chmod 600 ${i}/.ssh/authorized_keys
+done
+chown cloud-user:cloud-user /home/cloud-user/.ssh/authorized_keys
+restorecon -rv /root/.ssh
+restorecon -rv /home/cloud-user/.ssh
+
+echo "Converting DHCP scope to static IP address"
+
+DEVICE=`route -n|grep '^0.0.0.0'|awk '{print $8}'`
+IPADDR=`ifconfig $DEVICE|grep 'inet addr:'|awk '{sub(/addr:/,""); print $2}'`
+NETMASK=`ifconfig $DEVICE|grep 'Mask'|awk '{sub(/Mask:/,""); print $4}'`
+NETWORK=`ipcalc $IPADDR -n $NETMASK|awk -F= '{print $2}'`
+GATEWAY=`route -n|grep '^0.0.0.0'|awk '{print $2}'`
+HWADDR=`ifconfig $DEVICE|grep 'HWaddr'|awk '{print $5}'`
+
+cat <<EOF >/etc/sysconfig/network
+NETWORKING=yes
+HOSTNAME=$HOSTNAME
+GATEWAY=$GATEWAY
+EOF
+
+cat <<EOF >/etc/sysconfig/network-scripts/ifcfg-$DEVICE
+DEVICE=$DEVICE
+BOOTPROTO=static
+IPADDR=$IPADDR
+NETMASK=$NETMASK
+ONBOOT=yes
+HWADDR=$HWADDR
+EOF
+
+%end
+

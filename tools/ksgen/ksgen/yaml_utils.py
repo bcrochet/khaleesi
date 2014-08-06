@@ -16,7 +16,7 @@ from configure import Configuration, ConfigurationError
 from collections import OrderedDict
 import logging
 import yaml
-
+import random
 
 _MAPPING_TAG = yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG
 logger = logging.getLogger(__name__)
@@ -141,6 +141,28 @@ class OverwriteDirective(yaml.YAMLObject):
     def to_yaml(cls, dumper, data):
         return dumper.represent_data(data.value)
 
+class GenerateMacDirective(yaml.YAMLObject):
+    yaml_tag = u'!generate_mac'
+    yaml_dumper = yaml.SafeDumper
+
+    def __init__(self):
+        pass
+
+    def randomMAC(self):
+        mac = [ 0x54, 0x52, 0x00,
+            random.randint(0x00, 0x7f),
+            random.randint(0x00, 0xff),
+            random.randint(0x00, 0xff) ]
+        return ':'.join(map(lambda x: "%02x" % x, mac))
+
+    @classmethod
+    def from_yaml(cls, loader, node):
+        return GenerateMacDirective()
+
+    @classmethod
+    def to_yaml(cls, dumper, node):
+        value = node.randomMAC()
+        return dumper.represent_data(value)
 
 def patch_configure_getattr(self, name):
     if name.startswith('__'):

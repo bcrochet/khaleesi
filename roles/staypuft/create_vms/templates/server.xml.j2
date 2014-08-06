@@ -1,5 +1,5 @@
 <domain type='kvm'>
-  <name>{{ item }}</name>
+  <name>{{ item.value.name }}</name>
   <memory unit='KiB'>3145728</memory>
   <currentMemory unit='KiB'>3145728</currentMemory>
   <os>
@@ -23,12 +23,13 @@
     <emulator>/usr/libexec/qemu-kvm</emulator>
     <disk type='file' device='disk'>
       <driver name='qemu' type='qcow2'/>
-      <source file='/var/lib/libvirt/images/{{ item }}.qcow2'/>
+      <source file='/var/lib/libvirt/images/{{ item.value.name }}.qcow2'/>
       <target dev='vda' bus='virtio'/>
       <address type='pci' domain='0x0000' bus='0x00' slot='0x0b' function='0x0'/>
     </disk>
     <interface type='network'>
       <source network='default'/>
+      <mac address='{{ item.value.mac }}'/>
       <model type='virtio'/>
     </interface>
     <serial type='pty'>
