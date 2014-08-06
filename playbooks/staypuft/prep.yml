@@ -1,0 +1,49 @@
+---
+- name: Prepare system for packstack
+  hosts: '{{ prep_hosts }}:!localhost'
+  sudo: yes
+  roles:
+    - { role: common }
+  tags:
+    - prep
+
+- name: RHEL RHOS prep
+  hosts: '{{ prep_hosts }}:!localhost:&RedHat:&rhos'
+  sudo: yes
+  roles:
+    - { role: linux/rhel/rhos }
+  tags:
+    - prep
+
+- name: RHEL RDO prep
+  hosts: '{{ prep_hosts }}:!localhost:&RedHat:&rdo'
+  sudo: yes
+  roles:
+    - { role: linux/rhel/rdo }
+  tags:
+    - prep
+
+- name: CentOS RDO prep
+  hosts: '{{ prep_hosts }}:!localhost:&CentOS:&rdo'
+  sudo: yes
+  roles:
+    - { role: linux/centos }
+  tags:
+    - prep
+
+- name: Fedora RDO prep
+  hosts: '{{ prep_hosts }}:!localhost:&Fedora:&rdo'
+  sudo: yes
+  roles:
+    - { role: linux/fedora }
+  tags:
+    - prep
+
+- name: Linux common prep
+  hosts: '{{ prep_hosts }}:!localhost'
+  sudo: yes
+  roles:
+    - { role: linux-common }
+  tags:
+    - prep
+
