@@ -1,0 +1,16 @@
+---
+- name: Ensure firewalld enabled
+  service: name=firewalld state=started enabled=yes
+
+- name: Open firewall services
+  firewalld: service={{ item.1 }} state=enabled permanent={{ item.0 }}
+  with_nested:
+    - ['yes', 'no']
+    - firewall_services
+
+- name: Open firewall firewall ports
+  firewalld: port={{ item.1 }} state=enabled permanent={{ item.0 }}
+  with_nested:
+    - ['yes', 'no']
+    - firewall_ports
+

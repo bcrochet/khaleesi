@@ -1,0 +1,17 @@
+---
+- name: Ensure EPEL on RHEL
+  yum: name=http://download-i2.fedoraproject.org/pub/epel/beta/7/x86_64/epel-release-7-0.2.noarch.rpm state=present
+  when: ansible_distribution == 'RedHat' and ansible_distribution_version | version_compare('7.0', '>=')
+
+- name: Install pip
+  yum: name={{ item }} state=present
+  with_items:
+    - python-pip
+    - python-virtualenv
+
+- name: Create virtualenv
+  pip: name=ansible virtualenv={{ansible_env.HOME}}/.venv state=present
+
+- name: Remove EPEL on RHEL
+  yum: name=epel-release state=absent
+  when: ansible_distribution == 'RedHat' and ansible_distribution_version | version_compare('7.0', '>=')

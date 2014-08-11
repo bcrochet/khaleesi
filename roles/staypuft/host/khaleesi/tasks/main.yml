@@ -1,0 +1,6 @@
+---
+- name: Checkout khaleesi
+  git: repo={{ item.url }} dest={{ item.dest }} version={{ item.version }}
+  with_items:
+    - { url: "{{staypuft.khaleesi.main.repo}}", dest: "{{ansible_env.HOME + '/khaleesi'}}", version: "{{staypuft.khaleesi.main.branch}}" }
+    - { url: "{{staypuft.khaleesi.settings.repo}}", dest: "{{ansible_env.HOME + '/khaleesi-settings'}}", version: "{{staypuft.khaleesi.settings.branch}}" }
