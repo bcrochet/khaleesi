@@ -2,6 +2,7 @@
 #
 4b1795f5e534834bf1cb1f51bd9b4d3cbee895e0	rdo-packagers
 aa5ce6ce35650aee20e0f47b6cd9911fec403779	rdo-management/leads
+bb500839e500be9a37490d69a4ff1b913649eb24	rdo-management
 f3ecf61dbf829bba93bb94096fa20ed29f0768aa	rdo-ci-group
 global:Registered-Users                 	Registered Users
 user:adarazs                            	user/Attila Darazs (adarazs)
