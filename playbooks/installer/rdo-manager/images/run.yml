@@ -96,15 +96,11 @@
   environment:
       http_proxy: "{{ installer.http_proxy_url }}"
   tasks:
-    - name: ensure wget is installed
-      yum: name=wget state=latest
-      sudo: yes
-
     - name: download the pre-built rdo-manager images
-      shell: >
-            pushd {{ instack_user_home }}/overcloud_images;
-            wget --quiet -c -O {{ instack_user_home }}/overcloud_images/{{ item }}.tar
-            "{{ installer.images.url[product.name][product.full_version][product.build][installer.images.version] }}{{ item }}.tar"
+      get_url:
+        url: "{{ installer.images.url[product.name][product.full_version][product.build][installer.images.version] }}{{ item }}.tar"
+        dest: "{{ instack_user_home }}/overcloud_images/{{ item }}.tar"
+        use_proxy: "{{ installer.http_proxy_url is defined }}"
       with_items: "{{ installer.images[product.full_version].files|list }}"
       when: installer.overcloud_images is defined and installer.overcloud_images == "import"
 
@@ -113,9 +109,10 @@
   hosts: undercloud
   tasks:
     - name: untar the overcloud images
-      shell: >
-        pushd {{ instack_user_home }}/overcloud_images;
-        tar -xvf "{{ item }}.tar"
+      unarchive:
+        src: "{{ instack_user_home }}/overcloud_images/{{ item }}.tar"
+        dest: "{{ instack_user_home }}/overcloud_images"
+        copy: no
       with_items: "{{ installer.images[product.full_version].files|list }}"
       when: installer.overcloud_images is defined and installer.overcloud_images == "import"
 
